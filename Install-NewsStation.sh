@@ -2,6 +2,32 @@
 
 set -Eeuo pipefail
 
+resolve_downloads_dir() {
+    local candidate=""
+
+    case "$(uname -s)" in
+        Darwin)
+            printf '%s' "${HOME}/Downloads"
+            ;;
+        Linux)
+            if command -v xdg-user-dir >/dev/null 2>&1; then
+                candidate="$(xdg-user-dir DOWNLOAD 2>/dev/null || true)"
+            fi
+
+            if [[ -n "${candidate}" && "${candidate}" != "${HOME}" ]]; then
+                printf '%s' "${candidate}"
+            elif [[ -d "${HOME}/Pobrane" ]]; then
+                printf '%s' "${HOME}/Pobrane"
+            else
+                printf '%s' "${HOME}/Downloads"
+            fi
+            ;;
+        *)
+            printf '%s' "${HOME}/Downloads"
+            ;;
+    esac
+}
+
 readonly NEWSSTATION_OWNER="ScopCony"
 readonly NEWSSTATION_REPO="newsstation-backend"
 readonly NEWSSTATION_BRANCH="main"
@@ -9,7 +35,8 @@ readonly NEWSSTATION_UV_VERSION="0.11.32"
 readonly NEWSSTATION_BOOTSTRAP_URL="https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.sh"
 readonly NEWSSTATION_API="https://api.github.com/repos/${NEWSSTATION_OWNER}/${NEWSSTATION_REPO}"
 readonly NEWSSTATION_TOKEN_URL="https://github.com/settings/personal-access-tokens/new?name=NewsStation&description=Odczyt+prywatnego+repozytorium+NewsStation&target_name=${NEWSSTATION_OWNER}&expires_in=none&contents=read"
-readonly NEWSSTATION_HOME="${HOME}/.newsstation"
+readonly NEWSSTATION_DOWNLOADS="$(resolve_downloads_dir)"
+readonly NEWSSTATION_HOME="${NEWSSTATION_DOWNLOADS}/NewsStation"
 readonly NEWSSTATION_VERSIONS="${NEWSSTATION_HOME}/versions"
 readonly NEWSSTATION_TOOLS="${NEWSSTATION_HOME}/tools"
 readonly NEWSSTATION_CONFIG="${NEWSSTATION_HOME}/environment"

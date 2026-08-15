@@ -16,7 +16,14 @@ $NewsStationUvVersion = '0.11.32'
 $NewsStationBootstrapUrl = 'https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.ps1'
 $NewsStationApi = "https://api.github.com/repos/$NewsStationOwner/$NewsStationRepo"
 $NewsStationTokenUrl = "https://github.com/settings/personal-access-tokens/new?name=NewsStation&description=Odczyt+prywatnego+repozytorium+NewsStation&target_name=$NewsStationOwner&expires_in=none&contents=read"
-$NewsStationHome = Join-Path $env:LOCALAPPDATA 'NewsStation'
+$downloadsShellFolder = (New-Object -ComObject Shell.Application).Namespace('shell:Downloads')
+$NewsStationDownloads = if ($null -ne $downloadsShellFolder) {
+    $downloadsShellFolder.Self.Path
+}
+else {
+    Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Downloads'
+}
+$NewsStationHome = Join-Path $NewsStationDownloads 'NewsStation'
 $NewsStationVersions = Join-Path $NewsStationHome 'versions'
 $NewsStationTools = Join-Path $NewsStationHome 'tools'
 $NewsStationSecrets = Join-Path $NewsStationHome 'secrets'

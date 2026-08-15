@@ -9,6 +9,10 @@ prywatny program, przygotowuje Pythona 3.12 oraz uruchamia menu NewsStation.
 Przy kolejnych uruchomieniach sprawdza aktualizację i może skorzystać z ostatniej
 działającej kopii lokalnej.
 
+Program i jego lokalne wersje są przechowywane w podkatalogu `NewsStation`
+systemowego folderu Pobrane/Downloads. Starter sam rozpoznaje właściwą nazwę i
+położenie tego folderu na macOS, Windows 11 oraz Linuxie.
+
 Jeżeli token GitHuba nie jest jeszcze zapisany, starter automatycznie otwiera
 stronę tworzenia tokenu typu fine-grained z podstawowymi polami uzupełnionymi.
 Użytkownik wybiera wyłącznie repozytorium `newsstation-backend`, generuje token

@@ -1,0 +1,25 @@
+# NewsStation Launcher
+
+Publiczne startery do ręcznego uruchamiania prywatnego programu NewsStation.
+Właściwy kod programu pozostaje w prywatnym repozytorium
+`ScopCony/newsstation-backend`.
+
+Starter przy pierwszym uruchomieniu pyta o system i potrzebne klucze, pobiera
+prywatny program, przygotowuje Pythona 3.12 oraz uruchamia menu NewsStation.
+Przy kolejnych uruchomieniach sprawdza aktualizację i może skorzystać z ostatniej
+działającej kopii lokalnej.
+
+## macOS lub Linux
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.sh)"
+```
+
+## Windows 11
+
+```powershell
+irm "https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.ps1" | iex
+```
+
+Repozytorium nie zawiera kluczy Google, Supabase ani tokenów GitHuba. Na Linuxie
+starter nie tworzy automatycznego harmonogramu.

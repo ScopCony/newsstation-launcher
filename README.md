@@ -9,6 +9,11 @@ prywatny program, przygotowuje Pythona 3.12 oraz uruchamia menu NewsStation.
 Przy kolejnych uruchomieniach sprawdza aktualizację i może skorzystać z ostatniej
 działającej kopii lokalnej.
 
+Jeżeli token GitHuba nie jest jeszcze zapisany, starter automatycznie otwiera
+stronę tworzenia tokenu typu fine-grained z podstawowymi polami uzupełnionymi.
+Użytkownik wybiera wyłącznie repozytorium `newsstation-backend`, generuje token
+i wkleja go do startera. Przy kolejnych uruchomieniach strona nie jest otwierana.
+
 ## macOS lub Linux
 
 ```bash

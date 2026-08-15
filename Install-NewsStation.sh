@@ -8,6 +8,7 @@ readonly NEWSSTATION_BRANCH="main"
 readonly NEWSSTATION_UV_VERSION="0.11.32"
 readonly NEWSSTATION_BOOTSTRAP_URL="https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.sh"
 readonly NEWSSTATION_API="https://api.github.com/repos/${NEWSSTATION_OWNER}/${NEWSSTATION_REPO}"
+readonly NEWSSTATION_TOKEN_URL="https://github.com/settings/personal-access-tokens/new?name=NewsStation&description=Odczyt+prywatnego+repozytorium+NewsStation&target_name=${NEWSSTATION_OWNER}&expires_in=none&contents=read"
 readonly NEWSSTATION_HOME="${HOME}/.newsstation"
 readonly NEWSSTATION_VERSIONS="${NEWSSTATION_HOME}/versions"
 readonly NEWSSTATION_TOOLS="${NEWSSTATION_HOME}/tools"
@@ -124,6 +125,30 @@ secret_set() {
     else
         linux_secret_set "${name}" "${value}"
     fi
+}
+
+open_github_token_page_if_needed() {
+    local environment="$1"
+    [[ -z "$(secret_get "${environment}" "GITHUB_TOKEN")" ]] || return 0
+
+    info "" >&2
+    info "Potrzebny jest token GitHuba tylko do odczytu." >&2
+    info "Otwieram stronę tworzenia tokenu w przeglądarce..." >&2
+
+    if [[ "${environment}" == "macos" ]]; then
+        open "${NEWSSTATION_TOKEN_URL}" >/dev/null 2>&1 || true
+    elif command -v xdg-open >/dev/null 2>&1; then
+        (xdg-open "${NEWSSTATION_TOKEN_URL}" >/dev/null 2>&1 || true) &
+    fi
+
+    info "Na stronie GitHuba ustaw:" >&2
+    info "  1. Repository access: Only select repositories" >&2
+    info "  2. Selected repositories: newsstation-backend" >&2
+    info "  3. Repository permissions > Contents: Read-only" >&2
+    info "  4. Kliknij Generate token i skopiuj token." >&2
+    info "Jeśli przeglądarka się nie otworzyła, użyj adresu:" >&2
+    info "${NEWSSTATION_TOKEN_URL}" >&2
+    info "" >&2
 }
 
 ask_secret() {
@@ -284,6 +309,7 @@ main() {
     fi
 
     save_local_launcher || true
+    open_github_token_page_if_needed "${environment}"
     github_token="$(ask_secret "${environment}" "GITHUB_TOKEN" "Token GitHuba tylko do odczytu")"
     current_sha="$(read_current_sha)"
     if [[ -n "${current_sha}" && ! "${current_sha}" =~ ^[0-9a-f]{40}$ ]]; then
@@ -322,4 +348,3 @@ main() {
 }
 
 main "$@"
-

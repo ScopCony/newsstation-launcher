@@ -15,6 +15,7 @@ $NewsStationBranch = 'main'
 $NewsStationUvVersion = '0.11.32'
 $NewsStationBootstrapUrl = 'https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.ps1'
 $NewsStationApi = "https://api.github.com/repos/$NewsStationOwner/$NewsStationRepo"
+$NewsStationTokenUrl = "https://github.com/settings/personal-access-tokens/new?name=NewsStation&description=Odczyt+prywatnego+repozytorium+NewsStation&target_name=$NewsStationOwner&expires_in=none&contents=read"
 $NewsStationHome = Join-Path $env:LOCALAPPDATA 'NewsStation'
 $NewsStationVersions = Join-Path $NewsStationHome 'versions'
 $NewsStationTools = Join-Path $NewsStationHome 'tools'
@@ -103,6 +104,31 @@ function Save-Secret {
     $path = Join-Path $NewsStationSecrets "$Name.txt"
     $encrypted = ConvertFrom-SecureString $SecureValue
     Save-TextAtomically -Path $path -Value "$encrypted`n"
+}
+
+function Open-GitHubTokenPageIfNeeded {
+    if (Get-SavedSecret 'GITHUB_TOKEN') {
+        return
+    }
+
+    Write-NewsStationInfo ''
+    Write-NewsStationInfo 'Potrzebny jest token GitHuba tylko do odczytu.'
+    Write-NewsStationInfo 'Otwieram stronę tworzenia tokenu w przeglądarce...'
+    try {
+        Start-Process $NewsStationTokenUrl | Out-Null
+    }
+    catch {
+        Write-NewsStationInfo 'Nie udało się automatycznie otworzyć przeglądarki.'
+    }
+
+    Write-NewsStationInfo 'Na stronie GitHuba ustaw:'
+    Write-NewsStationInfo '  1. Repository access: Only select repositories'
+    Write-NewsStationInfo '  2. Selected repositories: newsstation-backend'
+    Write-NewsStationInfo '  3. Repository permissions > Contents: Read-only'
+    Write-NewsStationInfo '  4. Kliknij Generate token i skopiuj token.'
+    Write-NewsStationInfo 'Jeśli przeglądarka się nie otworzyła, użyj adresu:'
+    Write-NewsStationInfo $NewsStationTokenUrl
+    Write-NewsStationInfo ''
 }
 
 function Get-OrAskSecret {
@@ -388,6 +414,7 @@ function Start-NewsStation {
     Get-EnvironmentOnce | Out-Null
     Save-LocalLauncher
 
+    Open-GitHubTokenPageIfNeeded
     $githubToken = Get-OrAskSecret -Name 'GITHUB_TOKEN' -Label 'Token GitHuba tylko do odczytu'
     $currentSha = Get-CurrentSha
     $latestSha = ''
@@ -442,4 +469,3 @@ catch {
     Write-Error $_.Exception.Message
     exit 1
 }
-

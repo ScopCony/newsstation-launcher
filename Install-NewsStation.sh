@@ -151,6 +151,32 @@ open_github_token_page_if_needed() {
     info "" >&2
 }
 
+read_masked_secret() {
+    local value="" character
+
+    while IFS= read -r -s -n 1 character; do
+        if [[ -z "${character}" ]]; then
+            break
+        fi
+
+        case "${character}" in
+            $'\177'|$'\b')
+                if [[ -n "${value}" ]]; then
+                    value="${value%?}"
+                    printf '\b \b' >&2
+                fi
+                ;;
+            *)
+                value+="${character}"
+                printf '*' >&2
+                ;;
+        esac
+    done
+
+    printf '\n' >&2
+    printf '%s' "${value}"
+}
+
 ask_secret() {
     local environment="$1" name="$2" label="$3" hidden="${4:-yes}" value
     value="$(secret_get "${environment}" "${name}")"
@@ -161,8 +187,7 @@ ask_secret() {
 
     if [[ "${hidden}" == "yes" ]]; then
         printf '%s: ' "${label}" >&2
-        read -r -s value
-        printf '\n' >&2
+        value="$(read_masked_secret)"
     else
         printf '%s: ' "${label}" >&2
         read -r value

@@ -13,6 +13,8 @@ Jeżeli token GitHuba nie jest jeszcze zapisany, starter automatycznie otwiera
 stronę tworzenia tokenu typu fine-grained z podstawowymi polami uzupełnionymi.
 Użytkownik wybiera wyłącznie repozytorium `newsstation-backend`, generuje token
 i wkleja go do startera. Przy kolejnych uruchomieniach strona nie jest otwierana.
+Podczas wpisywania lub wklejania sekretów starter macOS/Linux pokazuje po jednej
+gwieździe `*` za każdy przyjęty znak, nie ujawniając właściwej wartości.
 
 ## macOS lub Linux
 

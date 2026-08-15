@@ -29,6 +29,7 @@ $NewsStationTools = Join-Path $NewsStationHome 'tools'
 $NewsStationSecrets = Join-Path $NewsStationHome 'secrets'
 $NewsStationConfig = Join-Path $NewsStationHome 'environment'
 $NewsStationCurrent = Join-Path $NewsStationHome 'current.sha'
+$NewsStationBundleId = Join-Path $NewsStationHome 'secrets-bundle.sha256'
 $NewsStationLauncher = Join-Path $NewsStationHome 'launcher.ps1'
 $NewsStationCommand = Join-Path $NewsStationHome 'NewsStation.cmd'
 $NewsStationUv = Join-Path $NewsStationTools 'uv.exe'
@@ -111,6 +112,92 @@ function Save-Secret {
     $path = Join-Path $NewsStationSecrets "$Name.txt"
     $encrypted = ConvertFrom-SecureString $SecureValue
     Save-TextAtomically -Path $path -Value "$encrypted`n"
+}
+
+function Test-RequiredSecretsReady {
+    foreach ($name in @('GOOGLE_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY')) {
+        if (-not (Get-SavedSecret $name)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Install-EncryptedSecrets {
+    param([string] $Source)
+
+    $bundle = Join-Path $Source 'secrets.enc'
+    $helper = Join-Path $Source 'tools\secrets_bundle.py'
+    $python = Join-Path $Source '.venv\Scripts\python.exe'
+    if (
+        -not (Test-Path -LiteralPath $bundle -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $helper -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $python -PathType Leaf)
+    ) {
+        return
+    }
+
+    $bundleId = (& $python $helper 'id' '--input' $bundle | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $bundleId -notmatch '^[0-9a-f]{64}$') {
+        Stop-NewsStation 'Nie udało się sprawdzić zaszyfrowanego pakietu kluczy.'
+    }
+
+    $savedBundleId = ''
+    if (Test-Path -LiteralPath $NewsStationBundleId -PathType Leaf) {
+        $savedBundleId = ([IO.File]::ReadAllText($NewsStationBundleId)).Trim()
+    }
+    if ($bundleId -eq $savedBundleId -and (Test-RequiredSecretsReady)) {
+        return
+    }
+
+    Write-NewsStationInfo ''
+    Write-NewsStationInfo 'Znaleziono nowy zaszyfrowany pakiet kluczy.'
+    $securePassword = Read-Host 'Hasło do pakietu kluczy' -AsSecureString
+    $plainPassword = Get-PlainText $securePassword
+    if (-not $plainPassword) {
+        Stop-NewsStation 'Nie podano hasła do pakietu kluczy.'
+    }
+
+    $lines = @($plainPassword | & $python $helper 'decrypt' '--input' $bundle '--password-stdin')
+    $decryptExitCode = $LASTEXITCODE
+    $plainPassword = $null
+    $securePassword = $null
+    if ($decryptExitCode -ne 0) {
+        Stop-NewsStation 'Nie udało się odszyfrować pakietu kluczy.'
+    }
+
+    $allowed = @(
+        'GOOGLE_API_KEY',
+        'GOOGLE_CLOUD_API_KEY',
+        'SUPABASE_URL',
+        'SUPABASE_SERVICE_KEY'
+    )
+    $values = @{}
+    foreach ($line in $lines) {
+        $separator = $line.IndexOf("`t")
+        if ($separator -lt 1) {
+            continue
+        }
+        $name = $line.Substring(0, $separator)
+        $value = $line.Substring($separator + 1)
+        if ($name -notin $allowed -or -not $value) {
+            Stop-NewsStation 'Pakiet zawiera nieobsługiwane ustawienie.'
+        }
+        $values[$name] = $value
+    }
+    foreach ($required in @('GOOGLE_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY')) {
+        if (-not $values.ContainsKey($required)) {
+            Stop-NewsStation 'Pakiet nie zawiera wszystkich wymaganych kluczy.'
+        }
+    }
+
+    foreach ($name in $values.Keys) {
+        $secureValue = ConvertTo-SecureString $values[$name] -AsPlainText -Force
+        Save-Secret -Name $name -SecureValue $secureValue
+    }
+    $values.Clear()
+    Save-TextAtomically -Path $NewsStationBundleId -Value "$bundleId`n"
+    Write-NewsStationInfo 'Klucze zostały bezpiecznie zapisane na tym komputerze.'
 }
 
 function Open-GitHubTokenPageIfNeeded {
@@ -393,10 +480,17 @@ function Invoke-NewsStationProgram {
     )
 
     $googleKey = Get-OrAskSecret -Name 'GOOGLE_API_KEY' -Label 'Klucz Google AI Studio'
+    $googleCloudKey = Get-SavedSecret 'GOOGLE_CLOUD_API_KEY'
     $supabaseUrl = Get-OrAskSecret -Name 'SUPABASE_URL' -Label 'Adres Supabase' -Visible
     $supabaseKey = Get-OrAskSecret -Name 'SUPABASE_SERVICE_KEY' -Label 'Klucz serwerowy Supabase'
 
     $env:GOOGLE_API_KEY = $googleKey
+    if ($googleCloudKey) {
+        $env:GOOGLE_CLOUD_API_KEY = $googleCloudKey
+    }
+    else {
+        Remove-Item Env:GOOGLE_CLOUD_API_KEY -ErrorAction SilentlyContinue
+    }
     $env:SUPABASE_URL = $supabaseUrl
     $env:SUPABASE_SERVICE_KEY = $supabaseKey
     $env:PYTHONUNBUFFERED = '1'
@@ -466,6 +560,7 @@ function Start-NewsStation {
     if (-not $currentSource) {
         Stop-NewsStation 'Nie można odnaleźć gotowej lokalnej kopii programu.'
     }
+    Install-EncryptedSecrets -Source $currentSource
     Invoke-NewsStationProgram -Source $currentSource -Arguments $NewsStationArguments
 }
 

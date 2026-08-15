@@ -41,6 +41,7 @@ readonly NEWSSTATION_VERSIONS="${NEWSSTATION_HOME}/versions"
 readonly NEWSSTATION_TOOLS="${NEWSSTATION_HOME}/tools"
 readonly NEWSSTATION_CONFIG="${NEWSSTATION_HOME}/environment"
 readonly NEWSSTATION_CURRENT="${NEWSSTATION_HOME}/current.sha"
+readonly NEWSSTATION_BUNDLE_ID="${NEWSSTATION_HOME}/secrets-bundle.sha256"
 readonly NEWSSTATION_LAUNCHER="${NEWSSTATION_HOME}/launcher.sh"
 readonly NEWSSTATION_LINUX_SECRETS="${NEWSSTATION_HOME}/secrets.env"
 readonly NEWSSTATION_UV="${NEWSSTATION_TOOLS}/uv"
@@ -152,6 +153,77 @@ secret_set() {
     else
         linux_secret_set "${name}" "${value}"
     fi
+}
+
+required_local_secrets_ready() {
+    local environment="$1" name
+    for name in GOOGLE_API_KEY SUPABASE_URL SUPABASE_SERVICE_KEY; do
+        [[ -n "$(secret_get "${environment}" "${name}")" ]] || return 1
+    done
+}
+
+save_bundle_id() {
+    local bundle_id="$1" temp_file
+    temp_file="$(mktemp "${NEWSSTATION_HOME}/bundle-id.XXXXXX")"
+    printf '%s\n' "${bundle_id}" > "${temp_file}"
+    chmod 600 "${temp_file}"
+    mv -f -- "${temp_file}" "${NEWSSTATION_BUNDLE_ID}"
+}
+
+install_encrypted_secrets() {
+    local environment="$1" version_dir="$2"
+    local bundle helper python_path bundle_id saved_id password output name value
+    bundle="${version_dir}/secrets.enc"
+    helper="${version_dir}/tools/secrets_bundle.py"
+    python_path="${version_dir}/.venv/bin/python"
+
+    [[ -f "${bundle}" && -f "${helper}" && -x "${python_path}" ]] || return 0
+
+    bundle_id="$("${python_path}" "${helper}" id --input "${bundle}")" || \
+        fail "Nie udało się sprawdzić zaszyfrowanego pakietu kluczy."
+    saved_id=""
+    if [[ -f "${NEWSSTATION_BUNDLE_ID}" ]]; then
+        saved_id="$(tr -d '[:space:]' < "${NEWSSTATION_BUNDLE_ID}")"
+    fi
+
+    if [[ "${bundle_id}" == "${saved_id}" ]] && required_local_secrets_ready "${environment}"; then
+        return 0
+    fi
+
+    info "" >&2
+    info "Znaleziono nowy zaszyfrowany pakiet kluczy." >&2
+    printf 'Hasło do pakietu kluczy: ' >&2
+    password="$(read_masked_secret)"
+    [[ -n "${password}" ]] || fail "Nie podano hasła do pakietu kluczy."
+
+    if ! output="$(
+        printf '%s\n' "${password}" | \
+            "${python_path}" "${helper}" decrypt --input "${bundle}" --password-stdin
+    )"; then
+        password=""
+        fail "Nie udało się odszyfrować pakietu kluczy."
+    fi
+    password=""
+
+    while IFS=$'\t' read -r name value; do
+        [[ -n "${name}" && -n "${value}" ]] || continue
+        case "${name}" in
+            GOOGLE_API_KEY|GOOGLE_CLOUD_API_KEY|SUPABASE_URL|SUPABASE_SERVICE_KEY)
+                secret_set "${environment}" "${name}" "${value}"
+                ;;
+            *)
+                output=""
+                fail "Pakiet zawiera nieobsługiwane ustawienie."
+                ;;
+        esac
+    done <<< "${output}"
+    output=""
+    value=""
+
+    required_local_secrets_ready "${environment}" || \
+        fail "Pakiet nie zawiera wszystkich wymaganych kluczy."
+    save_bundle_id "${bundle_id}"
+    info "Klucze zostały bezpiecznie zapisane na tym komputerze." >&2
 }
 
 open_github_token_page_if_needed() {
@@ -331,13 +403,20 @@ save_local_launcher() {
 }
 
 run_version() {
-    local environment="$1" version_dir="$2" google_key supabase_url supabase_key
+    local environment="$1" version_dir="$2"
+    local google_key google_cloud_key supabase_url supabase_key
     shift 2
     google_key="$(ask_secret "${environment}" "GOOGLE_API_KEY" "Klucz Google AI Studio")"
+    google_cloud_key="$(secret_get "${environment}" "GOOGLE_CLOUD_API_KEY")"
     supabase_url="$(ask_secret "${environment}" "SUPABASE_URL" "Adres Supabase" no)"
     supabase_key="$(ask_secret "${environment}" "SUPABASE_SERVICE_KEY" "Klucz serwerowy Supabase")"
 
     export GOOGLE_API_KEY="${google_key}"
+    if [[ -n "${google_cloud_key}" ]]; then
+        export GOOGLE_CLOUD_API_KEY="${google_cloud_key}"
+    else
+        unset GOOGLE_CLOUD_API_KEY || true
+    fi
     export SUPABASE_URL="${supabase_url}"
     export SUPABASE_SERVICE_KEY="${supabase_key}"
     export PYTHONUNBUFFERED=1
@@ -396,6 +475,7 @@ main() {
 
     version_dir="${NEWSSTATION_VERSIONS}/${current_sha}"
     version_ready "${current_sha}" || fail "Nie można odnaleźć gotowej lokalnej kopii programu."
+    install_encrypted_secrets "${environment}" "${version_dir}"
     run_version "${environment}" "${version_dir}" "$@"
 }
 

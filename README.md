@@ -4,8 +4,9 @@ Publiczne startery do ręcznego uruchamiania prywatnego programu NewsStation.
 Właściwy kod programu pozostaje w prywatnym repozytorium
 `ScopCony/newsstation-backend`.
 
-Starter przy pierwszym uruchomieniu pyta o system i potrzebne klucze, pobiera
-prywatny program, przygotowuje Pythona 3.12 oraz uruchamia menu NewsStation.
+Starter przy pierwszym uruchomieniu pyta o system i token GitHuba tylko do
+odczytu, pobiera prywatny program, przygotowuje Pythona 3.12, prosi o hasło do
+zaszyfrowanego pakietu kluczy Google i Supabase oraz uruchamia menu NewsStation.
 Przy kolejnych uruchomieniach sprawdza aktualizację i może skorzystać z ostatniej
 działającej kopii lokalnej.
 
@@ -20,6 +21,10 @@ i wkleja go do startera. Przy kolejnych uruchomieniach strona nie jest otwierana
 Podczas wpisywania lub wklejania sekretów starter macOS/Linux pokazuje po jednej
 gwieździe `*` za każdy przyjęty znak, nie ujawniając właściwej wartości.
 
+Zaszyfrowany pakiet znajduje się wyłącznie w prywatnym repozytorium programu.
+Hasło jest wymagane tylko przy pierwszym użyciu pakietu na danym komputerze oraz
+po jego późniejszej zmianie. Samo hasło nie jest zapisywane.
+
 ## macOS lub Linux
 
 ```bash
@@ -32,5 +37,6 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ScopCony/newsstation-lau
 irm "https://raw.githubusercontent.com/ScopCony/newsstation-launcher/main/Install-NewsStation.ps1" | iex
 ```
 
-Repozytorium nie zawiera kluczy Google, Supabase ani tokenów GitHuba. Na Linuxie
-starter nie tworzy automatycznego harmonogramu.
+To publiczne repozytorium nie zawiera kluczy Google, Supabase, zaszyfrowanego
+pakietu ani tokenów GitHuba. Na Linuxie starter nie tworzy automatycznego
+harmonogramu.
